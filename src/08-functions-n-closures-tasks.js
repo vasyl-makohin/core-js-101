@@ -1,185 +1,217 @@
-const assert = require('assert');
-const tasks = require('../src/08-functions-n-closures-tasks');
-it.optional = require('../extensions/it-optional');
+/* *********************************************************************************************
+ *                                                                                             *
+ * Please read the following tutorial before implementing tasks:                                *
+ * https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Functions                     *
+ * https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function   *
+ * https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Functions/arguments       *
+ * https://developer.mozilla.org/en-US/docs/Web/JavaScript/Closures                            *
+ *                                                                                             *
+ ********************************************************************************************* */
 
-describe('09-functions-n-closures-tasks', () => {
-  it.optional('getComposition should return the composition of two functions', () => {
-    [
-      {
-        f: Math.sin, g: Math.asin, arg: 0, result: 0,
-      },
-      {
-        f: (x) => x + 1, g: (x) => x + 1, arg: 1, result: 3,
-      },
-      {
-        f: (x) => x * x, g: (x) => x + 2, arg: 5, result: 49,
-      },
-    ].forEach((data) => {
-      const actual = tasks.getComposition(data.f, data.g);
-      assert(
-        actual(data.arg) === data.result,
-      );
-    });
-  });
+/**
+ * Returns the functions composition of two specified functions f(x) and g(x).
+ * The result of compose is to be a function of one argument, (lets call the argument x),
+ * which works like applying function f to the result of applying function g to x, i.e.
+ *  getComposition(f,g)(x) = f(g(x))
+ *
+ * @param {Function} f
+ * @param {Function} g
+ * @return {Function}
+ *
+ * @example
+ *   getComposition(Math.sin, Math.asin)(x) => Math.sin(Math.asin(x))
+ *
+ */
+function getComposition(...fns) {
+  return (args) => fns.reduceRight((arg, fn) => fn(arg), args);
+}
 
+/**
+ * Returns the math power function with the specified exponent
+ *
+ * @param {number} exponent
+ * @return {Function}
+ *
+ * @example
+ *   const power2 = getPowerFunction(2); // => x^2
+ *   power2(2) => 4
+ *   power2(4) => 16
+ *
+ *   const power05 = getPowerFunction(0.5); // => x^0.5
+ *   power05(4) => 2
+ *   power05(16) => 4
+ *
+ */
+function getPowerFunction(exponent) {
+  return (args) => args ** exponent;
+}
 
-  it.optional('getPowerFunction should return the math power function using the specified exponent', () => {
-    const power2 = tasks.getPowerFunction(2);
-    for (let i = 0; i < 10; i += 1) {
-      assert.equal(power2(i), i ** 2);
+/**
+ * Returns the polynom function of one argument based on specified coefficients.
+ * See: https://en.wikipedia.org/wiki/Polynomial#Definition
+ *
+ * @params {integer}
+ * @return {Function}
+ *
+ * @example
+ *   getPolynom(2,3,5) => y = 2*x^2 + 3*x + 5
+ *   getPolynom(1,-3)  => y = x - 3
+ *   getPolynom(8)     => y = 8
+ *   getPolynom()      => null
+ */
+function getPolynom(...args) {
+  const coeffArr = Array.from(args); // ?
+
+  return (x) => {
+    let result = coeffArr[0];
+    for (let i = 1; i < coeffArr.length; i += 1) {
+      result = result * x + coeffArr[i];
     }
+    return result;
+  };
+}
 
-    const power05 = tasks.getPowerFunction(0.5);
-    for (let i = 0; i < 10; i += 1) {
-      assert.equal(power05(i), i ** 0.5);
+/**
+ * Memoizes passed function and returns function
+ * which invoked first time calls the passed function and then always returns cached result.
+ *
+ * @params {Function} func - function to memoize
+ * @return {Function} memoized function
+ *
+ * @example
+ *   const memoizer = memoize(() => Math.random());
+ *   memoizer() => some random number  (first run, evaluates the result of Math.random())
+ *   memoizer() => the same random number  (second run, returns the previous cached result)
+ *   ...
+ *   memoizer() => the same random number  (next run, returns the previous cached result)
+ */
+function memoize(func) {
+  this.memory = !this.memory ? func() : this.memory;
+
+  return () => this.memory;
+}
+
+/**
+ * Returns the function trying to call the passed function and if it throws,
+ * retrying it specified number of attempts.
+ *
+ * @param {Function} func
+ * @param {number} attempts
+ * @return {Function}
+ *
+ * @example
+ * const attempt = 0, retryer = retry(() => {
+ *      if (++attempt % 2) throw new Error('test');
+ *      else return attempt;
+ * }, 2);
+ * retryer() => 2
+ */
+
+function retry(func, attempts) {
+  let attemptsS = attempts;
+
+  return function rec() {
+    try {
+      return func();
+    } catch (error) {
+      attemptsS -= 1;
+      if (attemptsS > 0) return rec();
     }
-  });
+    return null;
+  };
+}
 
+/**
+ * Returns the logging wrapper for the specified method,
+ * Logger has to log the start and end of calling the specified function.
+ * Logger has to log the arguments of invoked function.
+ * The format of output log is:
+ * <function name>(<arg1>, <arg2>,...,<argN>) starts
+ * <function name>(<arg1>, <arg2>,...,<argN>) ends
+ *
+ *
+ * @param {Function} func
+ * @param {Function} logFunc - function to output log with single string argument
+ * @return {Function}
+ *
+ * @example
+ *
+ * const cosLogger = logger(Math.cos, console.log);
+ * const result = cosLogger(Math.PI));     // -1
+ *
+ * log from console.log:
+ * cos(3.141592653589793) starts
+ * cos(3.141592653589793) ends
+ *
+ */
+function logger(func, logFunc) {
+  return (...arg) => {
+    const data = arg.map((el) => JSON.stringify(el));
+    logFunc(`${func.name}(${data}) starts`);
+    const result = func(...arg);
+    logFunc(`${func.name}(${data}) ends`);
+    return result;
+  };
+}
+/**
+ * Return the function with partial applied arguments
+ *
+ * @param {Function} fn
+ * @return {Function}
+ *
+ * @example
+ *   const fn = function(x1,x2,x3,x4) { return  x1 + x2 + x3 + x4; };
+ *   partialUsingArguments(fn, 'a')('b','c','d') => 'abcd'
+ *   partialUsingArguments(fn, 'a','b')('c','d') => 'abcd'
+ *   partialUsingArguments(fn, 'a','b','c')('d') => 'abcd'
+ *   partialUsingArguments(fn, 'a','b','c','d')() => 'abcd'
+ */
+function partialUsingArguments(fun, ...args) {
+  return (...rest) => fun(...args, ...rest);
+}
 
-  it.optional('getPolynom should return the polynom with specified coefficients', () => {
-    [
-      {
-        polynom: tasks.getPolynom(2, 3, 5),
-        results: [{ x: 0, y: 5 }, { x: 2, y: 19 }, { x: 3, y: 32 }],
-      }, {
-        polynom: tasks.getPolynom(1, -3),
-        results: [{ x: 0, y: -3 }, { x: 2, y: -1 }, { x: 5, y: 2 }],
-      }, {
-        polynom: tasks.getPolynom(8),
-        results: [{ x: 0, y: 8 }, { x: 2, y: 8 }, { x: 5, y: 8 }],
-      },
-    ].forEach((data) => {
-      data.results.forEach((test) => {
-        assert(
-          test.y === data.polynom(test.x),
-        );
-      });
-    });
-  });
+/**
+ * Returns the id generator function that returns next integer starting
+ * from specified number every time when invoking.
+ *
+ * @param {Number} startFrom
+ * @return {Function}
+ *
+ * @example
+ *   const getId4 = getIdGenerator(4);
+ *   const getId10 = gerIdGenerator(10);
+ *   getId4() => 4
+ *   getId10() => 10
+ *   getId4() => 5
+ *   getId4() => 6
+ *   getId4() => 7
+ *   getId10() => 11
+ */
 
-
-  it.optional('memoize method should cache the result of function', () => {
-    let numberOfCalls = 0;
-    const fn = () => {
-      numberOfCalls += 1;
-      return Math.random();
-    };
-    const memoizer = tasks.memoize(fn);
-    const expected = memoizer();
-    assert.equal(numberOfCalls, 1, 'memoize result should evaluate the specified function at first call');
-    for (let i = 0; i < 10; i += 1) {
-      const actual = memoizer();
-      assert.equal(actual, expected, 'memoize result should return the cached value at second and next calls');
-      assert.equal(numberOfCalls, 1, 'memoize result should not evaluate the specified function at second and next calls');
+function GetIdGenerator(startFrom) {
+  this.startFromm = startFrom;
+  this.firstTime = true;
+  return () => {
+    if (this.firstTime) {
+      this.firstTime = false;
+      return this.startFromm;
     }
-  });
+    this.startFromm += 1;
+    return this.startFromm;
+  };
+}
 
+function getIdGeneratorFunction(startFrom) {
+  return new GetIdGenerator(startFrom);
+}
 
-  it.optional('retry method should try to evaluate the specified function several times', () => {
-    const maxAttemps = 3;
-    const expected = 'expected';
-    let attemps = 0;
-
-    const fn = () => {
-      attemps += 1;
-      if (attemps < maxAttemps) throw new Error();
-      return expected;
-    };
-
-    const actual = tasks.retry(fn, maxAttemps)();
-    assert.equal(actual, expected);
-  });
-
-
-  it.optional('logger method should log start and end of call of the standard js function', () => {
-    let log = '';
-    const logFunc = (text) => {
-      log += `${text}\n`;
-      return log;
-    };
-    const cosLogger = tasks.logger(Math.cos, logFunc);
-
-    const actual = cosLogger(Math.PI);
-
-    assert.equal(actual, -1, 'logger function should return the original result from specified function');
-    assert.equal(
-      log,
-      'cos(3.141592653589793) starts\n'
-      + 'cos(3.141592653589793) ends\n',
-      'logger function shoud log the start and end of the specified function',
-    );
-  });
-
-
-  it.optional('logger method should log start and end of call of the specified function', () => {
-    let isCalling = false;
-    let log = '';
-
-    const fn = function testLogger(param, index) {
-      assert.equal(
-        log,
-        'testLogger(["expected","test",1],0) starts\n',
-        'logger function shoud log the start of specified function before calling',
-      );
-      isCalling = true;
-      return param[index];
-    };
-
-    const logFunc = (text) => {
-      log += `${text}\n`;
-      return log;
-    };
-    const logger = tasks.logger(fn, logFunc);
-
-    const actual = logger(['expected', 'test', 1], 0);
-
-    assert.equal(isCalling, true, 'logger function should call the specified function');
-    assert.equal(actual, 'expected', 'logger function should return the original result from specified function');
-    assert.equal(
-      log,
-      'testLogger(["expected","test",1],0) starts\n'
-      + 'testLogger(["expected","test",1],0) ends\n',
-      'logger function shoud log the end of specified function after calling',
-    );
-  });
-
-
-  it.optional('partialUsingArguments should return the function with partial applied arguments', () => {
-    const fn = (x1, x2, x3, x4) => x1 + x2 + x3 + x4;
-    assert.equal(
-      tasks.partialUsingArguments(fn, 'a')('b', 'c', 'd'),
-      'abcd',
-      "partialUsingArguments(fn, 'a')('b','c','d')' should return 'abcd'",
-    );
-    assert.equal(
-      tasks.partialUsingArguments(fn, 'a', 'b')('c', 'd'),
-      'abcd',
-      "partialUsingArguments(fn, 'a','b')('c','d')' should return 'abcd'",
-    );
-    assert.equal(
-      tasks.partialUsingArguments(fn, 'a', 'b', 'c')('d'),
-      'abcd',
-      "partialUsingArguments(fn, 'a','b','c')('d') should return 'abcd'",
-    );
-    assert.equal(
-      tasks.partialUsingArguments(fn, 'a', 'b', 'c', 'd')(),
-      'abcd',
-      "partialUsingArguments(fn, 'a','b','c','d')()' should return 'abcd'",
-    );
-  });
-
-
-  it.optional('getIdGeneratorFunction should return the id generator function', () => {
-    const f0 = tasks.getIdGeneratorFunction(0);
-    for (let i = 0; i < 1000; i += 1) {
-      assert.equal(f0(), i);
-    }
-
-    const f10 = tasks.getIdGeneratorFunction(10);
-    const f20 = tasks.getIdGeneratorFunction(20);
-    for (let i = 0; i < 1000; i += 1) {
-      assert.equal(f10(), 10 + i);
-      assert.equal(f20(), 20 + i);
-    }
-  });
-});
+module.exports = {
+  getComposition,
+  getPowerFunction,
+  getPolynom,
+  memoize,
+  retry,
+  logger,
+  partialUsingArguments,
+  getIdGeneratorFunction,
+};
